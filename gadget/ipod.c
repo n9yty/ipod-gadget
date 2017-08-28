@@ -796,7 +796,7 @@ int ipod_hid_setup(struct usb_function * func, const struct usb_ctrlrequest * ct
 
 	switch (ctrl->bRequest) {
 		case USB_REQ_GET_DESCRIPTOR:
-			memcpy(req->buf, ipod_hid_report, 208);
+			memcpy(req->buf, ipod_hid_report, 96);
 			goto respond;
 			break;
 		case HID_REQ_SET_REPORT:
@@ -877,10 +877,10 @@ int ipod_config_setup(struct usb_configuration * conf, const struct usb_ctrlrequ
 
 static struct usb_configuration ipod_configuration = {
 	.label			= "iPod interface",
-	.bConfigurationValue	= 1,
-	/* .iConfiguration = DYNAMIC */
-	.bmAttributes		= USB_CONFIG_ATT_SELFPOWER,
-  .MaxPower = 250,
+	.bConfigurationValue	= 2,
+	.iConfiguration = 0x04,
+	.bmAttributes = USB_CONFIG_ATT_SELFPOWER,
+	.MaxPower = 0xFA,
 	.unbind  	= ipod_config_unbind,
 	.setup = ipod_config_setup
 };
