@@ -370,6 +370,44 @@ void ipod_audio_control_unbind(struct usb_configuration * conf, struct usb_funct
 
 	
 }
+bool ipod_audio_req_match(struct usb_function * func, const struct usb_ctrlrequest * ctrl, bool config0)
+{
+	struct usb_composite_dev *cdev = func->config->cdev;
+	struct usb_request	*req = cdev->req;
+	u16			w_index = le16_to_cpu(ctrl->wIndex);
+	u16			w_value = le16_to_cpu(ctrl->wValue);
+	u16			w_length = le16_to_cpu(ctrl->wLength);
+	int status = 0;
+	
+	DBG(func->config->cdev, " = %s() \n", __FUNCTION__);
+	DBG(func->config->cdev,
+				"Control req: %02x.%02x v%04x i%04x l%d\n",
+				ctrl->bRequestType, ctrl->bRequest,
+				w_value, w_index, w_length);
+	
+	//Vendor type
+	if (ctrl->bRequestType == 0x40)
+	{
+		if (w_index == 0 || w_index == 500)
+		{
+			printk("Handled: %x\n", w_index);
+			
+			req->zero = 0;
+			req->length = w_length;
+			status = usb_ep_queue(cdev->gadget->ep0, req, GFP_ATOMIC);
+			if (status < 0) 
+			{
+				ERROR(cdev, "usb_ep_queue error on ep0 %d\n", status);
+				return false;
+			}
+			
+			return true;
+		}
+	}
+	
+	printk("Not Handled\n");
+	return false;
+}
 
 int ipod_audio_control_setup(struct usb_function * func, const struct usb_ctrlrequest * ctrl) {
 	struct usb_composite_dev *cdev = func->config->cdev;
@@ -488,6 +526,7 @@ void ipod_audio_control_disable(struct usb_function * func) {
 static struct  usb_function ipod_audio_control_function = {
 	.bind = ipod_audio_control_bind,
 	.unbind = ipod_audio_control_unbind,
+	.req_match = ipod_audio_req_match,
 	.setup = ipod_audio_control_setup,
 	.set_alt = ipod_audio_control_set_alt,
 	.get_alt = ipod_audio_control_get_alt,
@@ -878,8 +917,8 @@ int ipod_config_setup(struct usb_configuration * conf, const struct usb_ctrlrequ
 static struct usb_configuration ipod_configuration = {
 	.label			= "iPod interface",
 	.bConfigurationValue	= 2,
-	.iConfiguration = 0x04,
-	.bmAttributes = USB_CONFIG_ATT_SELFPOWER,
+	.iConfiguration = 0,
+	.bmAttributes = 0xC0,
 	.MaxPower = 0xFA,
 	.unbind  	= ipod_config_unbind,
 	.setup = ipod_config_setup
@@ -940,7 +979,7 @@ static struct usb_composite_driver ipod_driver = {
 	.name		= "g_ipod",
 	.dev		= &device_desc,
 	.strings	= ipod_strings,
-	.max_speed	= USB_SPEED_HIGH,
+	.max_speed	= USB_SPEED_FULL,
 
 	.bind		= ipod_bind,
 	.unbind		= ipod_unbind,

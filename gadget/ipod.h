@@ -6,11 +6,10 @@
 #define IPOD_USB_PRODUCT 0x1266
 
 static struct usb_string strings_dev[] = {
-	[USB_GADGET_MANUFACTURER_IDX].s = "Peter",
-	[USB_GADGET_PRODUCT_IDX].s = "pod",
-	[USB_GADGET_SERIAL_IDX].s = "1234567890",
-	[USB_GADGET_FIRST_AVAIL_IDX].s = "Audio",	
-	{  } /* end of list */
+	[0].s = "",
+	[1].s = "",
+	[2].s = "",	
+	{  }
 };
 
 static struct usb_gadget_strings stringtab_dev = {
@@ -34,10 +33,10 @@ static struct usb_device_descriptor device_desc = {
 	.bMaxPacketSize0 = 0x64,
 	.idVendor =		cpu_to_le16(IPOD_USB_VENDOR),
 	.idProduct =		cpu_to_le16(IPOD_USB_PRODUCT),
-	.bcdDevice = cpu_to_le16(0x0401),
-	.iManufacturer = USB_GADGET_MANUFACTURER_IDX,
-	.iProduct = USB_GADGET_PRODUCT_IDX,
-	.iSerialNumber = USB_GADGET_SERIAL_IDX,
+	.bcdDevice = cpu_to_le16(0x0001),
+	.iManufacturer = 0,
+	.iProduct = 0,
+	.iSerialNumber = 0,
 	.bNumConfigurations =	1,
 };
 
