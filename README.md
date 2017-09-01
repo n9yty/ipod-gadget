@@ -1,4 +1,11 @@
 # ipod-gadget
+
+Work-in-progress
+CURRENTLY NOT WORKING ON MY IPOD HOST DEVICE
+
+This is is a fork from https://github.com/oandrew/ipod-gadget
+
+
 iPod usb audio gadget
 
 ipod-gadget simulates an iPod USB device to stream digital audio to iPod compatible devices/docks.
