@@ -37,6 +37,8 @@ func GetIpodOptionsForLingo(msg IapPacket, resp chan<- IapPacket) {
 	resp <- msg
 }
 
+var PlayState uint8 = 0x02
+
 var lingoMap = map[LingoCmdId]LingoCmdHandler{
 
 	//--------------
@@ -120,6 +122,12 @@ var lingoMap = map[LingoCmdId]LingoCmdHandler{
 		//GetAccSampleRateCaps
 		out <- IapPacket{LingoCmdId{0x0a, 0x02}, []byte{in.Payload[0], in.Payload[1] + 1}}
 	},
+	
+	
+	LingoCmdId{0x00, 0x37}: func(in IapPacket, out chan<- IapPacket) {
+		//Ack
+		out <- Ack(in)
+	},
 
 	//StartIDPS
 	LingoCmdId{0x00, 0x38}: func(in IapPacket, out chan<- IapPacket) {
@@ -177,20 +185,30 @@ var lingoMap = map[LingoCmdId]LingoCmdHandler{
 		//RetSupportedEventNotification
 		out <- IapPacket{LingoCmdId{0x00, 0x51}, payload.Bytes()}
 	},
-
-	//-------------------
-	//Digital Audio Lingo
-	//-------------------
-
-	//RetAccSampleRateCaps
-	LingoCmdId{0x0a, 0x03}: func(in IapPacket, out chan<- IapPacket) {
-		payload := bytes.Buffer{}
-		payload.Write([]byte{in.Payload[0], in.Payload[1]})
-		binary.Write(&payload, binary.BigEndian, uint32(44100)) //44.1 kHz
-		binary.Write(&payload, binary.BigEndian, uint32(0))
-		binary.Write(&payload, binary.BigEndian, uint32(0))
-		out <- IapPacket{LingoCmdId{0x0a, 0x04}, payload.Bytes()}
+	
+	//--------------
+	//Display Remote
+	//--------------
+	
+	LingoCmdId{0x03, 0x03}: func(in IapPacket, out chan<- IapPacket) {
+		//Ack
+		out <- Ack(in)
 	},
+	
+	LingoCmdId{0x03, 0x08}: func(in IapPacket, out chan<- IapPacket) {
+		//Ack
+		out <- Ack(in)
+	},
+	
+	//GetiPodStateInfo
+	LingoCmdId{0x03, 0x0C}: func(in IapPacket, out chan<- IapPacket) {
+		
+		log.Printf("Display Current Play state: %d\n", PlayState)
+		
+		//Pause
+		out <- IapPacket{LingoCmdId{0x03, 0x0D}, []byte{in.Payload[0], in.Payload[1], in.Payload[2], PlayState}}
+	},
+	
 
 	//--------------
 	//Extended Lingo
@@ -198,6 +216,38 @@ var lingoMap = map[LingoCmdId]LingoCmdHandler{
 
 	//Reserved
 	LingoCmdId{0x04, 0x00}: func(in IapPacket, out chan<- IapPacket) {
+	},
+	
+	//GetAudiobookSpeed
+	LingoCmdId{0x04, 0x0002}: func(in IapPacket, out chan<- IapPacket) {
+		payload := bytes.Buffer{}
+		payload.Write([]byte{in.Payload[0], in.Payload[1]})
+		binary.Write(&payload, binary.BigEndian, uint32(0xFFFFFFFF))
+		binary.Write(&payload, binary.BigEndian, uint32(0x00))
+		
+		//Extended Lingo Ack
+		out <- IapPacket{LingoCmdId{0x04, 0x0003}, payload.Bytes()}
+	},
+	
+	//GetAudiobookSpeed
+	LingoCmdId{0x04, 0x0009}: func(in IapPacket, out chan<- IapPacket) {
+		payload := bytes.Buffer{}
+		payload.Write([]byte{in.Payload[0], in.Payload[1], 0x00})
+		
+		//Extended Lingo Ack
+		out <- IapPacket{LingoCmdId{0x04, 0x000A}, payload.Bytes()}
+	},
+	
+	//GetIndexedPlayingTrackInfo
+	LingoCmdId{0x04, 0x000C}: func(in IapPacket, out chan<- IapPacket) {
+		payload := bytes.Buffer{}
+		payload.Write([]byte{in.Payload[0], in.Payload[1], in.Payload[2]})
+		binary.Write(&payload, binary.BigEndian, uint32(0x00))
+		binary.Write(&payload, binary.BigEndian, uint32(0x0003441F))
+		binary.Write(&payload, binary.BigEndian, uint16(0x0000))
+
+		//Extended Lingo Ack
+		out <- IapPacket{LingoCmdId{0x04, 0x000D}, payload.Bytes()}
 	},
 	
 	//ResetDBSelection
@@ -210,7 +260,7 @@ var lingoMap = map[LingoCmdId]LingoCmdHandler{
 		//Extended Lingo Ack
 		out <- IapPacket{LingoCmdId{0x04, 0x0001}, payload.Bytes()}
 	},
-
+		
 	//SelectDBRecord
 	LingoCmdId{0x04, 0x0017}: func(in IapPacket, out chan<- IapPacket) {
 		payload := bytes.Buffer{}
@@ -257,7 +307,9 @@ var lingoMap = map[LingoCmdId]LingoCmdHandler{
 		// 0x02 = Paused
 		// 0x03 - 0xFE = Reserved
 		// 0xFF = Error
-		payload.WriteByte(0x01)
+		
+		log.Printf("Current Play state: %d\n", PlayState)
+		payload.WriteByte(PlayState)
 
 		//ReturnPlayStatus
 		out <- IapPacket{LingoCmdId{0x04, 0x001D}, payload.Bytes()}
@@ -337,21 +389,36 @@ var lingoMap = map[LingoCmdId]LingoCmdHandler{
 
 		//Extended Lingo Ack
 		out <- IapPacket{LingoCmdId{0x04, 0x0001}, payload.Bytes()}
-
-		//Update Track Position with PlayStatusChangeNotification
-		go func() {
-			time.Sleep(1 * time.Second)
-			out <- IapPacket{LingoCmdId{0x04, 0x0027}, []byte{0x06, 0x0A}}
-
-			for i := 0; i < 20; i++ {
-				payload := bytes.Buffer{}				
-				payload.WriteByte(0x04) // 0x04 = Track time offset (milliseconds)
-				binary.Write(&payload, binary.BigEndian, uint32(1000*(60*2+i)))
-				out <- IapPacket{LingoCmdId{0x04, 0x0027}, payload.Bytes()}
+		
+		log.Printf("Play control: %d\n", in.Payload[2])
+		
+		if in.Payload[2] == 0x01 {
+			PlayState = 0x01
+			
+			log.Printf("New PlayState: %d\n", PlayState)
+			
+			log.Printf("Starting thread\n")
+			
+			//Update Track Position with PlayStatusChangeNotification
+			go func() {
 				time.Sleep(1 * time.Second)
-			}
-		}()
+				
+				//Notification of Play
+				out <- IapPacket{LingoCmdId{0x04, 0x0027}, []byte{0x03, 0x14, 0x06, 0x0A}}
 
+				for i := 0; i < 20; i++ {
+					payload := bytes.Buffer{}				
+					payload.WriteByte(0x03)
+					payload.WriteByte(0x14)
+					payload.WriteByte(0x04) // 0x04 = Track time offset (milliseconds)
+					binary.Write(&payload, binary.BigEndian, uint32(i * 500))
+					out <- IapPacket{LingoCmdId{0x04, 0x0027}, payload.Bytes()}
+					time.Sleep(time.Second / 2)
+				}
+				
+				log.Printf("New time stopped\n")
+			}()
+		}
 	},
 
 	//Get Shuffle
@@ -437,6 +504,26 @@ var lingoMap = map[LingoCmdId]LingoCmdHandler{
 
 		//ReturnNumPlayingTracks
 		out <- IapPacket{LingoCmdId{0x04, 0x0036}, payload.Bytes()}
+	},
+	
+	//-------------------
+	//Digital Audio Lingo
+	//-------------------
+
+	//RetAccSampleRateCaps
+	LingoCmdId{0x0A, 0x00}: func(in IapPacket, out chan<- IapPacket) {
+		out <- Ack(in)
+	},
+	
+	
+	//RetAccSampleRateCaps
+	LingoCmdId{0x0A, 0x03}: func(in IapPacket, out chan<- IapPacket) {
+		payload := bytes.Buffer{}
+		payload.Write([]byte{in.Payload[0], in.Payload[1]})
+		binary.Write(&payload, binary.BigEndian, uint32(44100)) //44.1 kHz
+		binary.Write(&payload, binary.BigEndian, uint32(0))
+		binary.Write(&payload, binary.BigEndian, uint32(0))
+		out <- IapPacket{LingoCmdId{0x0a, 0x04}, payload.Bytes()}
 	},
 }
 
