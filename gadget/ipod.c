@@ -594,8 +594,8 @@ static void ipod_hid_out_complete(struct usb_ep *ep, struct usb_request *req)
 		return;
 
 	item->len = req->actual;
-  item->buf = kzalloc(req->actual, GFP_ATOMIC);
-  memcpy(item->buf, req->buf, req->actual);
+	item->buf = kzalloc(req->actual, GFP_ATOMIC);
+	memcpy(item->buf, req->buf, req->actual);
 
 	spin_lock_irqsave(&ipod_hid_data.spinlock, flags);
 	list_add_tail(&item->list, &ipod_hid_data.completed_out_req);
