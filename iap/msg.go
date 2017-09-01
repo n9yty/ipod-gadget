@@ -28,19 +28,11 @@ type IapPacket struct {
 }
 
 var reportTypes = []int{0,
-	//len  // id
-	5,   //  1
-	9,   //  2
-	13,  //  3
-	17,  //  4
-	25,  //  5
-	49,  //  6
-	95,  //  7
-	193, //  8
-	257, //  9
-	385, //  10
-	513, //  11
-	767, //  12}
+	//len // id
+	12,   //  1
+	14,   //  2
+	20,   //  3
+	63,   //  4
 }
 
 type Report struct {
@@ -108,10 +100,18 @@ func (report *Report) Ser(w io.Writer) {
 			break
 		}
 	}
+
+	padding := reportTypes[reportType] -  buf.Len()
+	log.Printf("Len %d pad to %d", buf.Len(), reportTypes[reportType])
+
 	bw := bufio.NewWriter(w)
 	bw.WriteByte(uint8(reportType))
 	bw.ReadFrom(&buf)
 
+	for i := 0; i < padding; i++ {
+		bw.WriteByte(0x00)
+	}
+		
 	bw.Flush()
 
 }
